@@ -1,0 +1,297 @@
+---
+title: "Statistics for TPCH"
+author: "GoGreen"
+date: "2023-10-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Installation
+
+```{r Install Packages}
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("e1071")) install.packages("e1071")
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("effsize")) install.packages("effsize")
+
+library("car")
+library(e1071)
+library(effsize)
+library(cowplot)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+```
+# Exploration 
+## measures of central tendency and variability
+
+```{r Mean and Mode Operations}
+# Mean and Mode
+
+
+tpch <- read.csv("./Data/Run_Table_DAT.csv")
+
+print(head(tpch))
+
+Pandas_Data_Small <- tpch %>%
+  filter(library == "Pandas" & dataframe_size == "Small" )
+Pandas_Data_Big <- tpch %>%
+  filter(library == "Pandas" & dataframe_size == "Big")
+Polars_Data_Small <- tpch %>%
+  filter(library == "Polars" & dataframe_size == "Small" )
+Polars_Data_Big <- tpch %>%
+  filter(library == "Polars" & dataframe_size == "Big")
+
+Pandas_Small_mean_energy <- mean(Pandas_Data_Small$energy_usage)
+Pandas_Big_mean_energy <- mean(Pandas_Data_Big$energy_usage)
+Polars_Small_mean_energy <- mean(Polars_Data_Small$energy_usage)
+Polars_Big_mean_energy <- mean(Polars_Data_Big$energy_usage)
+
+Pandas_Small_median_energy <- median(Pandas_Data_Small$energy_usage)
+Pandas_Big_median_energy <- median(Pandas_Data_Big$energy_usage)
+Polars_Small_median_energy <- median(Polars_Data_Small$energy_usage)
+Polars_Big_median_energy <- median(Polars_Data_Big$energy_usage)
+
+cat("Mean Analysis:","\n")
+cat("Pandas_Small_mean_energy:", Pandas_Small_mean_energy, "\n")
+cat("Pandas_Big_mean_energy:", Pandas_Big_mean_energy, "\n")
+cat("Polars_Small_mean_energy:", Polars_Small_mean_energy, "\n")
+cat("Polars_Big_mean_energy:", Polars_Big_mean_energy, "\n\n")
+
+cat("Median Analysis:","\n")
+cat("Pandas_Small_median_energy:", Pandas_Small_median_energy, "\n")
+cat("Pandas_Big_median_energy:", Pandas_Big_median_energy, "\n")
+cat("Polars_Small_median_energy:", Polars_Small_median_energy, "\n")
+cat("Polars_Big_median_energy:", Polars_Big_median_energy, "\n\n")
+
+```
+
+```{r Variance and SD}
+# Variance and Standard Deviation
+Pandas_Small_sd_energy <- sd(Pandas_Data_Small$energy_usage)
+Pandas_Big_sd_energy <- sd(Pandas_Data_Big$energy_usage)
+Polars_Small_sd_energy <- sd(Polars_Data_Small$energy_usage)
+Polars_Big_sd_energy <- sd(Polars_Data_Big$energy_usage)
+
+Pandas_Small_var_energy <- var(Pandas_Data_Small$energy_usage)
+Pandas_Big_var_energy <- var(Pandas_Data_Big$energy_usage)
+Polars_Small_var_energy <- var(Polars_Data_Small$energy_usage)
+Polars_Big_var_energy <- var(Polars_Data_Big$energy_usage)
+
+cat("Standard Deviation:","\n")
+cat("Pandas_Small_sd_energy:", Pandas_Small_sd_energy, "\n")
+cat("Pandas_Big_sd_energy:", Pandas_Big_sd_energy, "\n")
+cat("Polars_Small_sd_energy:", Polars_Small_sd_energy, "\n")
+cat("Polars_Big_sd_energy:", Polars_Big_sd_energy, "\n\n")
+
+cat("Variance:","\n")
+cat("Pandas_Small_var_energy:", Pandas_Small_var_energy, "\n")
+cat("Pandas_Big_var_energy:", Pandas_Big_var_energy, "\n")
+cat("Polars_Small_var_energy:", Polars_Small_var_energy, "\n")
+cat("Polars_Big_var_energy:", Polars_Big_var_energy, "\n\n")
+```
+
+# Normality
+## Visualize data for normality checking
+
+```{r Histogramms and Density Plots}
+
+# Create a density plot for energy_usage
+density_plot <- function(dataset, title, x, y){
+ggplot(dataset, aes(x = Values, fill = Distribution)) +
+geom_density(alpha = 0.5) +
+labs(
+title = title,
+x = x,
+y = y
+) +
+theme_minimal()
+}
+
+violin_boxplot <- function(dataset, title, x, y) {
+ggplot(dataset, aes(x = Distribution, y = Values, fill = Distribution)) +
+geom_violin(alpha = 0.5) +
+geom_boxplot(width = 0.045, outlier.shape = NA) +
+scale_fill_manual(values = c("Pandas" = "lightblue", "Polars" = "pink")) +
+labs(
+title = title,
+x = x,
+y = y
+) +
+theme_minimal()
+}
+
+# Compare Small Dataset Results
+Small_Block <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Small$energy_usage)), rep("Polars", length(Polars_Data_Small$energy_usage))),
+Values = c(Pandas_Data_Small$energy_usage, Polars_Data_Small$energy_usage)
+)
+# Compare Big Dataset Results
+Big_Block <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Big$energy_usage)), rep("Polars", length(Polars_Data_Big$energy_usage))),
+Values = c(Pandas_Data_Big$energy_usage, Polars_Data_Big$energy_usage)
+)
+# Make the Density/Violin Plots
+
+density_plot_small <- density_plot(dataset=Small_Block, title="DAT - Density Plot - Small", x="Energy Usage", y="Density")
+density_plot_big <- density_plot(dataset=Big_Block, title="DAT - Density Plot - Big", x="Energy Usage", y="Density")
+violin_plot_small <- violin_boxplot(dataset=Small_Block, title="DAT - Violin Plot - Small", x="Energy Usage", y="Density")
+violin_plot_big <- violin_boxplot(dataset=Big_Block, title="DAT - Violin Plot - Big", x="Energy Usage", y="Density")
+
+# Arrange the plots in a 4x4 grid
+grid <- plot_grid(density_plot_small, density_plot_big, violin_plot_small, violin_plot_big, nrow = 2, labels = "AUTO")
+
+# Save the grid of plots as a PNG image
+ggsave(filename = "./Data/Statistical_Images/grid_of_normality_DAT.png", plot = grid, width = 10, height = 8, units = "in")
+
+
+
+```
+
+
+```{r QQ Plots}
+qqPlot(Pandas_Data_Big$energy_usage)
+qqPlot(Pandas_Data_Small$energy_usage)
+qqPlot(Polars_Data_Big$energy_usage)
+qqPlot(Polars_Data_Small$energy_usage)
+
+```
+
+```{r Find Skewed Data and apply transformation regardingly to check if normality of data is enhanced}
+
+# see if data is skewed positively, negatively or not at all
+check_skew <- function(skew){
+  if (skew > 0) {
+  return("Positively Skewed")
+} else if (skew < 0) {
+  return("Negatively Skewed")
+} else {
+  return("Symmetric")
+}
+}
+
+# transform the data pairs to normality to see if the same transformation can be applied to the data to make it fit a normal distribution
+transform_pairs_towards_normality <- function(pandas,polars, name){
+
+# calculate skewness of datasets
+pandas_skew <- skewness(pandas)
+polars_skew <- skewness(polars)
+
+results_skew_pandas <- check_skew(pandas_skew)
+results_skew_polars <- check_skew(polars_skew)
+cat(name," pandas: ", results_skew_pandas, "\n")
+cat(name," polars: ", results_skew_polars, "\n")
+
+# check how much the data is skewed in what direction and apply transformation according to the skew: 
+
+if(results_skew_pandas == results_skew_polars){
+  if(results_skew_pandas == "Positively Skewed"){
+  # sqrt(small skew)/log(larger skew) for positive skew transformation
+  pandas_sqrt = sqrt(pandas)
+  polars_sqrt = sqrt(polars)
+  pandas_log = log(pandas)
+  polars_log = log(polars)
+  
+  # test normality differences
+  shapiro_Pandas <- shapiro.test(pandas)
+  shapiro_Polars <- shapiro.test(polars)
+  shapiro_Pandas_sqrt <- shapiro.test(pandas_sqrt)
+  shapiro_Polars_sqrt <- shapiro.test(polars_sqrt)
+  shapiro_Pandas_log <- shapiro.test(pandas_log)
+  shapiro_Polars_log <- shapiro.test(polars_log)
+  
+  cat(name, " Pandas before transformation: ", shapiro_Pandas$p.value, "sqrt: ",shapiro_Pandas_sqrt$p.value, "log: ",shapiro_Pandas_log$p.value)
+  cat(name, " Pandas before transformation: ", shapiro_Polars$p.value, "sqrt: ",shapiro_Polars_sqrt$p.value, "log: ",shapiro_Polars_log$p.value)
+  }
+  else{
+  # power^2(small skew)/power^3(larger skew) for negative skew transformation
+  pandas_power = pandas^2
+  polars_power = polars^2
+  pandas_power3 = pandas^3
+  polars_power3 = polars^3
+  
+  # test normality differences
+  shapiro_Pandas <- shapiro.test(pandas)
+  shapiro_Polars <- shapiro.test(polars)
+  shapiro_Pandas_power <- shapiro.test(pandas_power)
+  shapiro_Polars_power <- shapiro.test(polars_power)
+  shapiro_Pandas_power3 <- shapiro.test(pandas_power3)
+  shapiro_Polars_power3 <- shapiro.test(polars_power3)
+  
+  cat(name, " Pandas before transformation: ", shapiro_Pandas$p.value, "power 2: ",shapiro_Pandas_power$p.value, "power 3: ",shapiro_Pandas_power3$p.value, "\n")
+  cat(name, " Pandas before transformation: ", shapiro_Polars$p.value, "power 2: ",shapiro_Polars_power$p.value, "power 3: ",shapiro_Polars_power3$p.value, "\n")
+  }
+} else{
+  print("pandas and polars datasets are not skewed similarly which is why no transformation is applied")
+}
+# Determine skewness type
+
+}
+test_pa_bi = Pandas_Data_Big$energy_usage
+test_po_bi = Polars_Data_Big$energy_usage
+test_pa_sm = Pandas_Data_Small$energy_usage
+test_po_sm = Polars_Data_Small$energy_usage
+  
+transform_pairs_towards_normality(test_pa_bi,test_po_bi, "Big Dataset")
+transform_pairs_towards_normality(test_pa_sm,test_po_sm, "Small Dataset")
+
+```
+
+## Normality Testing on orginal data
+
+```{r Shapiro-Wilks Test After Checking for possible transformations}
+
+# A low p-value (typically less than 0.05) indicates that the data significantly deviates from a normal distribution, providing evidence to reject the null hypothesis. In other words, it suggests non-normality.
+#It is calculated during the Shapiro-Wilk test and is used to assess the degree of normality in the data. The value of W ranges between 0 and 1, where 1 indicates perfect normality.
+#The smaller the W statistic, the stronger the evidence against the null hypothesis (the assumption that the data follows a normal distribution). Smaller W values suggest departures from normality.
+
+shapiro_Pa_B <- shapiro.test(Pandas_Data_Big$energy_usage)
+shapiro_Pa_S <- shapiro.test(Pandas_Data_Small$energy_usage)
+shapiro_Po_B <- shapiro.test(Polars_Data_Big$energy_usage)
+shapiro_Po_S <- shapiro.test(Polars_Data_Small$energy_usage)
+
+cat("shapiro_Pandas_Big ",  "P_Value: ", shapiro_Pa_B$p.value, "W_Value: ", shapiro_Pa_B$statistic, "\n")
+cat("shapiro_Pandas_Small ",  "P_Value: ", shapiro_Pa_S$p.value,"W_Value: ", shapiro_Pa_S$statistic, "\n")
+cat("shapiro_Polars_Big ",  "P_Value: ", shapiro_Po_B$p.value,"W_Value: ", shapiro_Po_B$statistic, "\n")
+cat("shapiro_Polars_Small ",  "P_Value: ", shapiro_Po_S$p.value,"W_Value: ", shapiro_Po_S$statistic, "\n")
+
+
+```
+
+## Hypothesis Testing
+
+```{r non-parametric Wilcoxon rank-sum test}
+Big <- wilcox.test(Pandas_Data_Big$energy_usage, Polars_Data_Big$energy_usage, alternative = "two.sided")
+Small <- wilcox.test(Pandas_Data_Small$energy_usage, Polars_Data_Small$energy_usage, alternative = "two.sided")
+# Print the test result
+cat("Small Dataset: ", "\n")
+print(Small)
+cat("Big Dataset: ", "\n")
+print(Big)
+
+```
+# Effect Size Estimation 
+
+```{r Effect Size Estimation with cliffs delta for Big Dataset}
+
+# Calculate Cliff's Delta for your datasets
+cliffs_delta_value_Big <- effsize::cliff.delta(Pandas_Data_Big$energy_usage,Polars_Data_Big$energy_usage)
+cliffs_delta_value_Small <- effsize::cliff.delta(Pandas_Data_Small$energy_usage, Polars_Data_Small$energy_usage)
+
+# Print the result
+print("\n")
+print("Cliff's Delta Big Dataset:")
+print(cliffs_delta_value_Big)
+print("Cliff's Delta Small Dataset:")
+print(cliffs_delta_value_Small)
+
+
+```
+
+

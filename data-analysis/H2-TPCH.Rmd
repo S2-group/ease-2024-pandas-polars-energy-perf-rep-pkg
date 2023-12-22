@@ -1,0 +1,738 @@
+---
+title: "Statistics for TPCH_h2"
+author: "GoGreen"
+date: "2023-10-21"
+output: html_document
+---
+
+
+# Installation
+
+```{r Install Packages}
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("e1071")) install.packages("e1071")
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("effsize")) install.packages("effsize")
+
+library("car")
+library(e1071)
+library(effsize)
+library(cowplot)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+
+
+
+```
+# Exploration 
+## measures of central tendency and variability
+
+```{r Mean and Mode Operations}
+# Mean and Mode
+
+
+tpch <- read.csv("./Data/Run_Table_TPCH.csv")
+
+
+print(head(tpch))
+
+Pandas_Data_Small <- tpch %>%
+  filter(library == "Pandas" & dataframe_size == "Small" )
+Pandas_Data_Big <- tpch %>%
+  filter(library == "Pandas" & dataframe_size == "Big")
+Polars_Data_Small <- tpch %>%
+  filter(library == "Polars" & dataframe_size == "Small" )
+Polars_Data_Big <- tpch %>%
+  filter(library == "Polars" & dataframe_size == "Big")
+
+```
+```{r descriptive Stats}
+analyse_descriptive_stats <- function(name, dataset) {
+  summary_stats <- summary(dataset[c("energy_usage", "memory_usage", "execution_time", "cpu_usage")])
+  print(name)
+  print(summary_stats)
+}
+analyse_descriptive_stats("Pandas_Data_Small", Pandas_Data_Small)
+analyse_descriptive_stats("Pandas_Data_Big", Pandas_Data_Big)
+analyse_descriptive_stats("Polars_Data_Small",  Polars_Data_Small)
+analyse_descriptive_stats("Polars_Data_Big", Polars_Data_Big)
+```
+```{r standard deviation and variance}
+analyse_descriptive_stats <- function(name, dataset) {
+  sd_energy <- sd(dataset$energy_usage)
+  sd_mem <- sd(dataset$memory_usage)
+  sd_cpu <- sd(dataset$cpu_usage)
+  sd_exe <- sd(dataset$execution_time)
+  cat(name, "\n")
+  cat("Standard deviation for energy usage :", sd_energy, "\n")
+  cat("Standard deviation for memory usage :", sd_mem, "\n")
+  cat("Standard deviation for cpu usage :", sd_cpu, "\n")
+  cat("Standard deviation for execution time :", sd_exe, "\n")
+}
+analyse_descriptive_stats("Pandas_Data_Small", Pandas_Data_Small)
+analyse_descriptive_stats("Pandas_Data_Big", Pandas_Data_Big)
+analyse_descriptive_stats("Polars_Data_Small",  Polars_Data_Small)
+analyse_descriptive_stats("Polars_Data_Big", Polars_Data_Big)
+```
+
+```{r standard variance}
+analyse_descriptive_stats <- function(name, dataset) {
+  var_energy <- var(dataset$energy_usage)
+  var_mem <- var(dataset$memory_usage)
+  var_cpu <- var(dataset$cpu_usage)
+  var_exe <- var(dataset$execution_time)
+  cat(name, "\n")
+  cat("Variance for energy usage :", var_energy, "\n")
+  cat("Variance for memory usage :", var_mem, "\n")
+  cat("Variance for cpu usage :", var_cpu, "\n")
+  cat("Variance for execution time :", var_exe, "\n")
+}
+analyse_descriptive_stats("Pandas_Data_Small", Pandas_Data_Small)
+analyse_descriptive_stats("Pandas_Data_Big", Pandas_Data_Big)
+analyse_descriptive_stats("Polars_Data_Small",  Polars_Data_Small)
+analyse_descriptive_stats("Polars_Data_Big", Polars_Data_Big)
+```
+
+
+# Normality
+## Visualize data for normality checking
+
+```{r Histogramms and Density Plot functions}
+# Data Distribution
+# Create a density plot for energy_usage for dataframe_size = small
+density_plot <- function(dataset, title, x, y){
+ggplot(dataset, aes(x = Values, fill = Distribution)) +
+geom_density(alpha = 0.5) +
+labs(
+title = title,
+x = x,
+y = y
+) +
+theme_minimal()
+}
+
+violin_boxplot <- function(dataset, title, x, y) {
+ggplot(dataset, aes(x = Distribution, y = Values, fill = Distribution)) +
+geom_violin(alpha = 0.5) +
+geom_boxplot(width = 0.03, outlier.shape = NA) +
+scale_fill_manual(values = c("Pandas" = "lightblue", "Polars" = "pink")) +
+labs(
+title = title,
+x = x,
+y = y
+) +
+theme_minimal()
+}
+
+```
+
+```{r Density and violin plots for cpu usage}
+Small_Block <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Small$cpu_usage)), rep("Polars", length(Polars_Data_Small$cpu_usage))),
+Values = c(Pandas_Data_Small$cpu_usage, Polars_Data_Small$cpu_usage)
+)
+Big_Block <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Big$cpu_usage)), rep("Polars", length(Polars_Data_Big$cpu_usage))),
+Values = c(Pandas_Data_Big$energy_usage, Polars_Data_Big$cpu_usage)
+)
+density_plot_small_cpu <- density_plot(dataset=Small_Block, title="Density Plot of CPU Usage for Dataframe Size: Small", x="CPU Usage", y="Density")
+density_plot_big_cpu <- density_plot(dataset=Big_Block, title="Density Plot of CPU Usage for Dataframe Size: Big", x="CPU Usage", y="Density")
+violin_plot_small_cpu <- violin_boxplot(dataset=Small_Block, title="Violin Plot of CPU Usage for Dataframe Size: Small", x="CPU Usage", y="Density")
+violin_plot_big_cpu <- violin_boxplot(dataset=Big_Block, title="Violin Plot of CPU Usage for Dataframe Size: Big", x="CPU Usage", y="Density")
+
+# Arrange the plots in a 4x4 grid
+grid <- plot_grid(density_plot_small_cpu, density_plot_big_cpu, violin_plot_small_cpu, violin_plot_big_cpu, nrow = 2, labels = "AUTO")
+
+# Save the grid of plots as a PNG image
+ggsave(filename = "./Data/Statistical_Images/grid_of_normality_TPCH_cpu.png", plot = grid, width = 10, height = 8, units = "in")
+
+
+density_plot_small_cpu
+density_plot_big_cpu
+violin_plot_small_cpu
+violin_plot_big_cpu
+```
+
+
+```{r Density and violin plots for memory usage}
+
+Small_Block_memory_usage <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Small$memory_usage)), rep("Polars", length(Polars_Data_Small$memory_usage))),
+Values = c(Pandas_Data_Small$memory_usage, Polars_Data_Small$memory_usage)
+)
+Big_Block_memory_usage <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Big$memory_usage)), rep("Polars", length(Polars_Data_Big$memory_usage))),
+Values = c(Pandas_Data_Big$memory_usage, Polars_Data_Big$memory_usage)
+)
+density_plot_small_mem <- density_plot(dataset=Small_Block_memory_usage, title="Density Plot of memory Usage for Dataframe Size: Small", x="memory Usage", y="Density")
+density_plot_big_mem <- density_plot(dataset=Big_Block_memory_usage, title="Density Plot of memory Usage for Dataframe Size: Big", x="memory Usage", y="Density")
+violin_plot_small_mem <- violin_boxplot(dataset=Small_Block_memory_usage, title="Violin Plot of memory Usage for Dataframe Size: Small", x="memory Usage", y="Density")
+violin_plot_big_mem <- violin_boxplot(dataset=Big_Block_memory_usage, title="Violin Plot of memory Usage for Dataframe Size: Big", x="memory Usage", y="Density")
+
+# Arrange the plots in a 4x4 grid
+grid <- plot_grid(density_plot_small_cpu, density_plot_big_cpu, violin_plot_small_cpu, violin_plot_big_cpu, nrow = 2, labels = "AUTO")
+
+# Save the grid of plots as a PNG image
+ggsave(filename = "./Data/Statistical_Images/grid_of_normality_TPCH_mem.png", plot = grid, width = 10, height = 8, units = "in")
+
+density_plot_small_mem
+density_plot_big_mem
+violin_plot_small_mem
+violin_plot_big_mem
+```
+
+
+
+```{r Density and violin plots for energy usage}
+Small_Block_execution_time <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Small$execution_time)), rep("Polars", length(Polars_Data_Small$execution_time))),
+Values = c(Pandas_Data_Small$execution_time, Polars_Data_Small$execution_time)
+)
+Big_Block_execution_time <- data.frame(
+Distribution = c(rep("Pandas", length(Pandas_Data_Big$execution_time)), rep("Polars", length(Polars_Data_Big$execution_time))),
+Values = c(Pandas_Data_Big$execution_time, Polars_Data_Big$execution_time)
+)
+density_plot_small_exe <- density_plot(dataset=Small_Block_execution_time, title="Density Plot of execution_timefor Dataframe Size: Small", x="execution_time", y="Density")
+density_plot_big_exe <- density_plot(dataset=Big_Block_execution_time, title="Density Plot of execution_time for Dataframe Size: Big", x="execution_time", y="Density")
+violin_plot_small_exe <- violin_boxplot(dataset=Small_Block_execution_time, title="Violin Plot of execution_time for Dataframe Size: Small", x="execution_time", y="Density")
+violin_plot_big_exe <- violin_boxplot(dataset=Big_Block_execution_time, title="Violin Plot of execution_time for Dataframe Size: Big", x="execution_time", y="Density")
+
+# Arrange the plots in a 4x4 grid
+grid <- plot_grid(density_plot_small_cpu, density_plot_big_cpu, violin_plot_small_cpu, violin_plot_big_cpu, nrow = 2, labels = "AUTO")
+
+# Save the grid of plots as a PNG image
+ggsave(filename = "./Data/Statistical_Images/grid_of_normality_TPCH_exe.png", plot = grid, width = 10, height = 8, units = "in")
+
+density_plot_small_exe
+density_plot_big_exe
+violin_plot_small_exe
+violin_plot_big_exe
+
+```
+
+
+```{r QQ Plots for CPU}
+#make this example reproducible
+set.seed(11)
+
+qqcpu_Pandas_Big <- qqPlot(Pandas_Data_Big$cpu_usage)
+qqcpu_Pandas_Small <- qqPlot(Pandas_Data_Small$cpu_usage)
+qqcpu_Polars_Big <- qqPlot(Polars_Data_Big$cpu_usage)
+qqcpu_Polars_Small <- qqPlot(Polars_Data_Small$cpu_usage)
+
+# Arrange the plots in a 4x4 grid
+grid <- plot_grid(qqcpu_Pandas_Big, qqcpu_Pandas_Small, qqcpu_Polars_Big, qqcpu_Polars_Small, nrow = 2, labels = "AUTO")
+
+# Save the grid of plots as a PNG image
+ggsave(filename = "./Data/Statistical_Images/q-q_plot_cpu_TPCH.png", plot = grid, width = 10, height = 8, units = "in")
+
+qqcpu_Pandas_Big
+qqcpu_Pandas_Small
+qqcpu_Polars_Big 
+qqcpu_Polars_Small
+
+```
+
+```{r QQ Plots for Memory}
+
+qqmem_Pandas_Big  <- qqPlot(Pandas_Data_Big$memory_usage)
+qqmem_Pandas_Small <- qqPlot(Pandas_Data_Small$memory_usage)
+qqmem_Polars_Big <- qqPlot(Polars_Data_Big$memory_usage)
+qqmem_Polars_Small <- qqPlot(Polars_Data_Small$memory_usage)
+
+# Arrange the plots in a 4x4 grid
+grid <- plot_grid(qqmem_Pandas_Big, qqmem_Pandas_Small, qqmem_Polars_Big, qqmem_Polars_Small, nrow = 2, labels = "AUTO")
+
+# Save the grid of plots as a PNG image
+ggsave(filename = "./Data/Statistical_Images/q-q_plot_memory_TPCH.png", plot = grid, width = 10, height = 8, units = "in")
+
+qqmem_Pandas_Big
+qqmem_Pandas_Small
+qqmem_Polars_Big
+qqmem_Polars_Small
+
+```
+
+```{r QQ Plots for Memory}
+qqexe_Pandas_Big <- qqPlot(Pandas_Data_Big$execution_time)
+qqexe_Pandas_Small <- qqPlot(Pandas_Data_Small$execution_time)
+qqexe_Polars_Big <- qqPlot(Polars_Data_Big$execution_time)
+qqexe_Polars_Small <- qqPlot(Polars_Data_Small$execution_time)
+
+# Arrange the plots in a 4x4 grid
+grid <- plot_grid(qqexe_Pandas_Big, qqexe_Pandas_Small, qqexe_Polars_Big, qqexe_Polars_Small, nrow = 2, labels = "AUTO")
+
+# Save the grid of plots as a PNG image
+ggsave(filename = "./Data/Statistical_Images/q-q_plot_execution_time_TPCH.png", plot = grid, width = 10, height = 8, units = "in")
+
+qqexe_Pandas_Big
+qqexe_Pandas_Small
+qqexe_Polars_Big
+qqexe_Polars_Small
+
+```
+
+
+```{r Find Skewed Data}
+
+
+find_skewness <- function(data, name, factor){
+  # Create a boxplot
+# Calculate skewness
+skew <- skewness(data)
+
+# Determine skewness type
+if (skew > 0) {
+  skew_type <- "Positively Skewed"
+} else if (skew < 0) {
+  skew_type <- "Negatively Skewed"
+} else {
+  skew_type <- "Symmetric (No skew)"
+}
+
+# Print summary statistics and skewness type
+cat("Summary Statistics:\n", name, factor)
+summary(data)
+cat("\nSkewness:", skew_type)
+
+# Interpretation
+if (skew > 0) {
+  cat("\n\nThe data is positively skewed, which means it has a long tail on the right side.")
+} else if (skew < 0) {
+  cat("\n\nThe data is negatively skewed, which means it has a long tail on the left side.")
+} else {
+  cat("\n\nThe data is symmetric, showing no skewness.")
+}
+}
+find_skewness(Pandas_Data_Big$cpu_usage, "PandasBig", "cpu")
+find_skewness(Pandas_Data_Small$cpu_usage, "PandasSmall", "cpu")
+find_skewness(Pandas_Data_Big$cpu_usage, "PolarsBig", "cpu")
+find_skewness(Pandas_Data_Small$cpu_usage, "PolarsSmall", "cpu")
+
+find_skewness(Pandas_Data_Big$memory_usage, "PandasBig", "mem")
+find_skewness(Pandas_Data_Small$memory_usage, "PandasSmall", "mem")
+find_skewness(Pandas_Data_Big$memory_usage, "PolarsBig", "mem")
+find_skewness(Pandas_Data_Small$memory_usage, "PolarsSmall", "mem")
+
+find_skewness(Pandas_Data_Big$execution_time, "PandasBig", "exe")
+find_skewness(Pandas_Data_Small$execution_time, "PandasSmall", "exe")
+find_skewness(Pandas_Data_Big$execution_time, "PolarsBig", "exe")
+find_skewness(Pandas_Data_Small$execution_time, "PolarsSmall", "exe")
+
+
+```
+
+
+## Outliers Analysis
+
+```{r Remove Outliers and do QQ plots}
+# For looping the tests - different dataframe will be used:
+
+remove_outliers <- function(x) {
+  Q1 <- quantile(x, 0.25)
+  Q3 <- quantile(x, 0.75)
+  IQR_value <- IQR(x)
+  lower_bound <- Q1 -  2*IQR_value
+  upper_bound <- Q3 +  2*IQR_value
+  return(x[x >= lower_bound & x <= upper_bound])
+}
+
+# Assuming 'tpch' is your dataframe
+# Define a function to remove outliers based on the Z-score
+# remove_and_prepare <- function(data, threshold = 3) {
+#   # Calculate Z-scores
+#   data 
+#   z_scores <- scale(data)
+#   
+#   # Identify and remove outliers based on the Z-scores
+#   data_no_outliers <- data[abs(z_scores) <= threshold]
+#   
+#   return(data_no_outliers)
+# }
+# # Remove outliers from the 'tpch' dataframe
+
+# Check the summary of the cleaned dataframe
+
+
+# Identify outliers
+Pandas_Big_no_outliers <- remove_outliers(Pandas_Data_Big$energy_usage)
+Pandas_Small_no_outliers <- remove_outliers(Pandas_Data_Small$energy_usage)
+Polars_Big_no_outliers <- remove_outliers(Polars_Data_Big$energy_usage)
+Polars_Small_no_outliers <- remove_outliers(Polars_Data_Small$energy_usage)
+
+
+
+
+
+qqPlot(Pandas_Big_no_outliers)
+qqPlot(Pandas_Small_no_outliers)
+qqPlot(Polars_Big_no_outliers)
+qqPlot(Polars_Small_no_outliers)
+
+
+
+```
+
+
+```{r Shapiro-Wilks Test}
+
+# A low p-value (typically less than 0.05) indicates that the data significantly deviates from a normal distribution, providing evidence to reject the null hypothesis. In other words, it suggests non-normality.
+#It is calculated during the Shapiro-Wilk test and is used to assess the degree of normality in the data. The value of W ranges between 0 and 1, where 1 indicates perfect normality.
+#The smaller the W statistic, the stronger the evidence against the null hypothesis (the assumption that the data follows a normal distribution). Smaller W values suggest departures from normality.
+
+shapiro_Pa_B <- shapiro.test(Pandas_Data_Big$energy_usage)
+shapiro_Pa_S <- shapiro.test(Pandas_Data_Small$energy_usage)
+shapiro_Po_B <- shapiro.test(Polars_Data_Big$energy_usage)
+shapiro_Po_S <- shapiro.test(Polars_Data_Small$energy_usage)
+
+shapiro_Pa_B_cpu <- shapiro.test(Pandas_Data_Big$cpu_usage)
+shapiro_Pa_S_cpu <- shapiro.test(Pandas_Data_Small$cpu_usage)
+shapiro_Po_B_cpu <- shapiro.test(Polars_Data_Big$cpu_usage)
+shapiro_Po_S_cpu <- shapiro.test(Polars_Data_Small$cpu_usage)
+
+shapiro_Pa_B_mem <- shapiro.test(Pandas_Data_Big$memory_usage)
+shapiro_Pa_S_mem <- shapiro.test(Pandas_Data_Small$memory_usage)
+shapiro_Po_B_mem <- shapiro.test(Polars_Data_Big$memory_usage)
+shapiro_Po_S_mem <- shapiro.test(Polars_Data_Small$memory_usage)
+
+shapiro_Pa_B_exe <- shapiro.test(Pandas_Data_Big$execution_time)
+shapiro_Pa_S_exe <- shapiro.test(Pandas_Data_Small$execution_time)
+shapiro_Po_B_exe <- shapiro.test(Polars_Data_Big$execution_time)
+shapiro_Po_S_exe <- shapiro.test(Polars_Data_Small$execution_time)
+
+cat("shapiro_Pandas_Big",  "P_Value: ", shapiro_Pa_B$p.value, "W_Value: ", shapiro_Pa_B$statistic, "\n")
+cat("shapiro_Pandas_Small",  "P_Value: ", shapiro_Pa_S$p.value,"W_Value: ", shapiro_Pa_S$statistic, "\n")
+cat("shapiro_Polars_Big",  "P_Value: ", shapiro_Po_B$p.value,"W_Value: ", shapiro_Po_B$statistic, "\n")
+cat("shapiro_Polars_Small",  "P_Value: ", shapiro_Po_S$p.value,"W_Value: ", shapiro_Po_S$statistic, "\n")
+
+
+cat("shapiro_Pandas_Big_cpu",  "P_Value: ", shapiro_Pa_B_cpu$p.value, "W_Value: ", shapiro_Pa_B_cpu$statistic, "\n")
+cat("shapiro_Pandas_Small_cpu",  "P_Value: ", shapiro_Pa_S_cpu$p.value,"W_Value: ", shapiro_Pa_S_cpu$statistic, "\n")
+cat("shapiro_Polars_Big_cpu",  "P_Value: ", shapiro_Po_B_cpu$p.value,"W_Value: ", shapiro_Po_B_cpu$statistic, "\n")
+cat("shapiro_Polars_Small_cpu ",  "P_Value: ", shapiro_Po_S_cpu$p.value,"W_Value: ", shapiro_Po_S_cpu$statistic, "\n")
+
+cat("shapiro_Pandas_Big_mem",  "P_Value: ", shapiro_Pa_B_mem$p.value, "W_Value: ", shapiro_Pa_B_mem$statistic, "\n")
+cat("shapiro_Pandas_Small_mem",  "P_Value: ", shapiro_Pa_S_mem$p.value,"W_Value: ", shapiro_Pa_S_mem$statistic, "\n")
+cat("shapiro_Polars_Big_mem",  "P_Value: ", shapiro_Po_B_mem$p.value,"W_Value: ", shapiro_Po_B_mem$statistic, "\n")
+cat("shapiro_Polars_Small_mem ",  "P_Value: ", shapiro_Po_S_mem$p.value,"W_Value: ", shapiro_Po_S_mem$statistic, "\n")
+
+cat("shapiro_Pandas_Big_exe",  "P_Value: ", shapiro_Pa_B_exe$p.value, "W_Value: ", shapiro_Pa_B_exe$statistic, "\n")
+cat("shapiro_Pandas_Small_exe",  "P_Value: ", shapiro_Pa_S_exe$p.value,"W_Value: ", shapiro_Pa_S_exe$statistic, "\n")
+cat("shapiro_Polars_Big_exe",  "P_Value: ", shapiro_Po_B_exe$p.value,"W_Value: ", shapiro_Po_B_exe$statistic, "\n")
+cat("shapiro_Polars_Small_exe",  "P_Value: ", shapiro_Po_S_exe$p.value,"W_Value: ", shapiro_Po_S_exe$statistic, "\n")
+
+
+```
+
+```{r Find Skewed Data and apply transformation regardingly to check if normality of data is enhanced}
+
+# see if data is skewed positively, negatively or not at all
+check_skew <- function(skew){
+  if (skew > 0) {
+  return("Positively Skewed")
+} else if (skew < 0) {
+  return("Negatively Skewed")
+} else {
+  return("Symmetric")
+}
+}
+
+# transform the data pairs to normality to see if the same transformation can be applied to the data to make it fit a normal distribution
+transform_pairs_towards_normality <- function(pandas,polars, name){
+
+# calculate skewness of datasets
+pandas_skew <- skewness(pandas)
+polars_skew <- skewness(polars)
+
+results_skew_pandas <- check_skew(pandas_skew)
+results_skew_pandas <- check_skew(polars_skew)
+
+
+# check how much the data is skewed in what direction and apply transformation according to the skew: 
+
+if(results_skew_pandas == results_skew_pandas){
+  if(results_skew_pandas == "Positively Skewed"){
+  # sqrt(small skew)/log(larger skew) for positive skew transformation
+  pandas_sqrt = sqrt(pandas)
+  polars_sqrt = sqrt(polars)
+  pandas_log = log(pandas)
+  polars_log = log(polars)
+  
+  # test normality differences
+  shapiro_Pandas <- shapiro.test(pandas)
+  shapiro_Polars <- shapiro.test(polars)
+  shapiro_Pandas_sqrt <- shapiro.test(pandas_sqrt)
+  shapiro_Polars_sqrt <- shapiro.test(polars_sqrt)
+  shapiro_Pandas_log <- shapiro.test(pandas_log)
+  shapiro_Polars_log <- shapiro.test(polars_log)
+  
+  cat(name, " Pandas before transformation: ", shapiro_Pandas$p.value, "sqrt: ",shapiro_Pandas_sqrt$p.value, "log: ",shapiro_Pandas_log$p.value,  "\n")
+  cat(name, " Polars before transformation: ", shapiro_Polars$p.value, "sqrt: ",shapiro_Polars_sqrt$p.value, "log: ",shapiro_Polars_log$p.value,  "\n")
+  }
+  else{
+  # power^2(small skew)/power^3(larger skew) for negative skew transformation
+  pandas_power = pandas^2
+  polars_power = polars^2
+  pandas_power3 = pandas^3
+  polars_power3 = polars^3
+  
+  # test normality differences
+  shapiro_Pandas <- shapiro.test(pandas)
+  shapiro_Polars <- shapiro.test(polars)
+  shapiro_Pandas_power <- shapiro.test(pandas_power)
+  shapiro_Polars_power <- shapiro.test(polars_power)
+  shapiro_Pandas_power3 <- shapiro.test(pandas_power3)
+  shapiro_Polars_power3 <- shapiro.test(polars_power3)
+  
+  cat(name, " Pandas before transformation: ", shapiro_Pandas$p.value, "power 2: ",shapiro_Pandas_power$p.value, "power 3: ",shapiro_Pandas_power3$p.value, "\n")
+  cat(name, " Polars before transformation: ", shapiro_Polars$p.value, "power 2: ",shapiro_Polars_power$p.value, "power 3: ",shapiro_Polars_power3$p.value, "\n")
+  }
+}
+# Determine skewness type
+
+}
+test_pa_bi = Pandas_Data_Big$energy_usage
+test_po_bi = Polars_Data_Big$energy_usage
+test_pa_sm = Pandas_Data_Small$energy_usage
+test_po_sm = Polars_Data_Small$energy_usage
+  
+transform_pairs_towards_normality(Pandas_Data_Big$energy_usage,Polars_Data_Big$energy_usage, "Big Dataset energy usage")
+transform_pairs_towards_normality(Pandas_Data_Small$energy_usage,Pandas_Data_Small$energy_usage, "Small Dataset energy usage")
+
+
+transform_pairs_towards_normality(Pandas_Data_Big$cpu_usage,Polars_Data_Big$cpu_usage, "Big Dataset cpu usage")
+transform_pairs_towards_normality(Pandas_Data_Small$energy_usage,Pandas_Data_Small$energy_usage, "Small Dataset cpu usage")
+
+transform_pairs_towards_normality(Pandas_Data_Big$memory_usage,Polars_Data_Big$memory_usage, "Big Dataset memory usage")
+transform_pairs_towards_normality(Pandas_Data_Small$memory_usage,Pandas_Data_Small$memory_usage, "Small Dataset memory usage")
+
+transform_pairs_towards_normality(Pandas_Data_Big$execution_time,Polars_Data_Big$execution_time, "Big Dataset execution time")
+transform_pairs_towards_normality(Pandas_Data_Small$execution_time,Pandas_Data_Small$execution_time, "Small Dataset execution time")
+
+```
+
+
+
+
+
+
+
+```{r}
+# Function to create scatter plot with correlation line
+make_scatter_plot_with_correlation <- function(dataset, x_var, y_var, title){
+  ggplot(dataset, aes(x = !!sym(x_var), y = !!sym(y_var))) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "pink") +  # Add correlation line
+    theme_minimal() +  # Make the background white
+    labs(
+      title = title,
+      x = x_var,
+      y = y_var
+    )
+}
+
+make_scatter_plot_with_correlation_blue <- function(dataset, x_var, y_var, title){
+  ggplot(dataset, aes(x = !!sym(x_var), y = !!sym(y_var))) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "lightblue") +  # Add correlation line
+    theme_minimal() +  # Make the background white
+    labs(
+      title = title,
+      x = x_var,
+      y = y_var
+    )
+}
+
+# Function to create scatter plot without correlation line
+make_scatter_plot <- function(dataset, x_var, y_var, title){
+  ggplot(dataset, aes(x = !!sym(x_var), y = !!sym(y_var))) +
+    geom_point() +
+    theme_minimal() +  # Make the background white
+    labs(
+      title = title,
+      x = x_var,
+      y = y_var
+    )
+}
+
+# Create scatter plots with correlation line
+scatter_plot_cpu_Polars_Big <- make_scatter_plot_with_correlation_blue(Polars_Data_Big, "energy_usage", "cpu_usage", "Polars - Big Dataframe Size")
+scatter_plot_mem_Polars_Big <- make_scatter_plot_with_correlation_blue(Polars_Data_Big, "energy_usage", "memory_usage", "Polars - Big Dataframe Size")
+scatter_plot_exe_Polars_Big <- make_scatter_plot_with_correlation_blue(Polars_Data_Big, "energy_usage", "execution_time", "Polars - Big Dataframe Size")
+
+# Create scatter plots with correlation line and blue color
+scatter_plot_cpu_Polars_Small <- make_scatter_plot_with_correlation_blue(Polars_Data_Small, "energy_usage", "cpu_usage", "Polars - Small Dataframe Size")
+scatter_plot_mem_Polars_Small <- make_scatter_plot_with_correlation_blue(Polars_Data_Small, "energy_usage", "memory_usage", "Polars - Small Dataframe Size")
+scatter_plot_exe_Polars_Small <- make_scatter_plot_with_correlation_blue(Polars_Data_Small, "energy_usage", "execution_time", "Polars - Small Dataframe Size")
+
+# Create scatter plots with correlation line and blue color
+scatter_plot_cpu_Pandas_Big <- make_scatter_plot_with_correlation(Pandas_Data_Big, "energy_usage", "cpu_usage", "Pandas - Big Dataframe Size")
+scatter_plot_mem_Pandas_Big <- make_scatter_plot_with_correlation(Pandas_Data_Big, "energy_usage", "memory_usage", "Pandas - Big Dataframe Size")
+scatter_plot_exe_Pandas_Big <- make_scatter_plot_with_correlation(Pandas_Data_Big, "energy_usage", "execution_time", "Pandas - Big Dataframe Size")
+
+# Create scatter plots with correlation line and blue color
+scatter_plot_cpu_Pandas_Small <- make_scatter_plot_with_correlation(Pandas_Data_Small, "energy_usage", "cpu_usage", "Pandas - Small Dataframe Size")
+scatter_plot_mem_Pandas_Small <- make_scatter_plot_with_correlation(Pandas_Data_Small, "energy_usage", "memory_usage", "Pandas - Small Dataframe Size")
+scatter_plot_exe_Pandas_Small <- make_scatter_plot_with_correlation(Pandas_Data_Small, "energy_usage", "execution_time", "Pandas - Small Dataframe Size)")
+
+# Save the plots
+
+grid_CPU <- plot_grid(scatter_plot_cpu_Polars_Big , scatter_plot_cpu_Polars_Small, scatter_plot_cpu_Pandas_Big, scatter_plot_cpu_Pandas_Small, nrow = 2, labels = "AUTO")
+grid_EXE <- plot_grid(scatter_plot_exe_Polars_Big , scatter_plot_exe_Polars_Small, scatter_plot_mem_Pandas_Big, scatter_plot_exe_Pandas_Small, nrow = 2, labels = "AUTO")
+grid_MEM <- plot_grid(scatter_plot_mem_Polars_Big , scatter_plot_mem_Polars_Small, scatter_plot_exe_Pandas_Big, scatter_plot_mem_Pandas_Small, nrow = 2, labels = "AUTO")
+
+
+ggsave(filename = "./Data/Statistical_Images/scatter_plots_cpu_usage_TPCH.png", plot = grid_CPU, width = 10, height = 8, units = "in")
+ggsave(filename = "./Data/Statistical_Images/scatter_plots_execution_time_TPCH.png", plot = grid_EXE, width = 10, height = 8, units = "in")
+ggsave(filename = "./Data/Statistical_Images/scatter_plots_memory_usage_TPCH.png", plot = grid_MEM, width = 10, height = 8, units = "in")
+
+
+
+scatter_plot_cpu_Polars_Big
+scatter_plot_mem_Polars_Big 
+scatter_plot_exe_Polars_Big
+
+scatter_plot_cpu_Polars_Small
+scatter_plot_mem_Polars_Small
+scatter_plot_exe_Polars_Small
+
+scatter_plot_cpu_Pandas_Big
+scatter_plot_mem_Pandas_Big
+scatter_plot_exe_Pandas_Big
+
+scatter_plot_cpu_Pandas_Small
+scatter_plot_mem_Pandas_Small
+scatter_plot_exe_Pandas_Small
+
+```
+
+
+
+
+## Hypothesis Testing
+
+```{r non-parametric test spearman rank}
+correlation_cpu_Pandas_Big <- cor.test(Pandas_Data_Big$energy_usage, Pandas_Data_Big$cpu_usage, method = "spearman")
+correlation_mem_Pandas_Big <- cor.test(Pandas_Data_Big$energy_usage, Pandas_Data_Big$memory_usage, method = "spearman")
+correlation_exe_Pandas_Big <- cor.test(Pandas_Data_Big$energy_usage, Pandas_Data_Big$execution_time, method = "spearman")
+correlation_cpu_Pandas_Small <- cor.test(Pandas_Data_Small$energy_usage, Pandas_Data_Small$cpu_usage, method = "spearman")
+correlation_mem_Pandas_Small <- cor.test(Pandas_Data_Small$energy_usage, Pandas_Data_Small$memory_usage, method = "spearman")
+correlation_exe_Pandas_Small <- cor.test(Pandas_Data_Small$energy_usage, Pandas_Data_Small$execution_time, method = "spearman")
+correlation_cpu_Polars_Big <- cor.test(Polars_Data_Big$energy_usage, Polars_Data_Big$cpu_usage, method = "spearman")
+correlation_mem_Polars_Big <- cor.test(Polars_Data_Big$energy_usage, Polars_Data_Big$memory_usage, method = "spearman")
+correlation_exe_Polars_Big <- cor.test(Polars_Data_Big$energy_usage, Polars_Data_Big$execution_time, method = "spearman")
+correlation_cpu_Polars_Small <- cor.test(Polars_Data_Small$energy_usage, Polars_Data_Small$cpu_usage, method = "spearman")
+correlation_mem_Polars_Small <- cor.test(Polars_Data_Small$energy_usage, Polars_Data_Small$memory_usage, method = "spearman")
+correlation_exe_Polars_Small <- cor.test(Polars_Data_Small$energy_usage, Polars_Data_Small$execution_time, method = "spearman")
+
+# # Extract p-value from the test result
+# p_value_cpu_Pandas_Big <- correlation_cpu_Pandas_Small$p.value
+# p_value_mem_Pandas_Big <- correlation_mem_Pandas_Small$p.value
+# p_value_exe_Pandas_Big <- correlation_exe_Pandas_Small$p.value
+# 
+# p_value_cpu_Pandas_Small <- correlation_cpu_Pandas_Small$p.value
+# p_value_mem_Pandas_Small <- correlation_mem_Pandas_Small$p.value
+# p_value_exe_Pandas_Small <- correlation_exe_Pandas_Small$p.value
+# 
+# p_value_cpu_Polars_Big <- correlation_cpu_Polars_Big$p.value
+# p_value_mem_Polars_Big <- correlation_mem_Polars_Big$p.value
+# p_value_exe_Polars_Big <- correlation_exe_Polars_Big$p.value
+# 
+# p_value_cpu_Polars_Small <- correlation_cpu_Polars_Small$p.value
+# p_value_mem_Polars_Small <- correlation_mem_Pandas_Small$p.value
+# p_value_exe_Polars_Small <- correlation_exe_Pandas_Small$p.value
+
+check_significance <- function(correlation, name){
+  # Compare p-value with the significance level (e.g., 0.05) for hypothesis testing
+if (correlation$p.value <= 0.05) {
+  cat("\n", name, "Reject the null hypothesis: There is a significant correlation.","\n", "p_value: ", correlation$p.value, ", correlation: ", correlation$estimate)
+} else {
+  cat("\n", name, "Fail to reject the null hypothesis: There is no significant correlation.","\n", "p_value: ", correlation$p.value, ", correlation: ", correlation$estimate)
+}
+}
+
+check_significance(correlation_cpu_Pandas_Small, "cpu_Pandas_Small")
+check_significance(correlation_mem_Pandas_Small, "mem_Pandas_Small")
+check_significance(correlation_exe_Pandas_Small, "exe_Pandas_Small")
+
+check_significance(correlation_cpu_Pandas_Big, "cpu_Pandas_Big")
+check_significance(correlation_mem_Pandas_Big, "mem_Pandas_Big")
+check_significance(correlation_exe_Pandas_Big, "exe_Pandas_Big")
+
+check_significance(correlation_cpu_Polars_Small, "cpu_Polars_Small")
+check_significance(correlation_mem_Polars_Small, "mem_Polars_Small")
+check_significance(correlation_exe_Polars_Small, "exe_Polars_Small")
+
+check_significance(correlation_cpu_Polars_Big, "cpu_Polars_Big")
+check_significance(correlation_mem_Polars_Big, "mem_Polars_Big")
+check_significance(correlation_exe_Polars_Big, "exe_Polars_Big")
+
+
+```
+
+
+
+```{r Results of correlation alterantive presenatation}
+library(knitr)
+
+# Create a data frame to store the results
+results_df <- data.frame(
+  Name = c(
+    "Energy Usage vs CPU Usage for Pandas Small ",
+    "Energy Usage vs Memory Usage for Pandas Small ",
+    "Energy Usage vs Execution Time for Pandas Small",
+    "Energy Usage vs CPU Usage for Pandas Big",
+    "Energy Usage vs Memory Usage for Pandas Big",
+    "Energy Usage vs Execution Time for Pandas Big  ",
+    "Energy Usage vs CPU Usage for Polars Small ",
+    "Energy Usage vs Memory Usage for Polars Small",
+    "Energy Usage vs Execution Time for Polars Small",
+    "Energy Usage vs CPU Usage for Polars Big ",
+    "Energy Usage vs Memory Usage for Polars Big ",
+    "Energy Usage vs Execution Time for Polars Big"
+  ),
+  CorrelationEstimate = c(
+    correlation_cpu_Pandas_Small$estimate,
+    correlation_mem_Pandas_Small$estimate,
+    correlation_exe_Pandas_Small$estimate,
+    correlation_cpu_Pandas_Big$estimate,
+    correlation_mem_Pandas_Big$estimate,
+    correlation_exe_Pandas_Big$estimate,
+    correlation_cpu_Polars_Small$estimate,
+    correlation_mem_Polars_Small$estimate,
+    correlation_exe_Polars_Small$estimate,
+    correlation_cpu_Polars_Big$estimate,
+    correlation_mem_Polars_Big$estimate,
+    correlation_exe_Polars_Big$estimate
+  ),
+  PValue = c(
+    correlation_cpu_Pandas_Small$p.value,
+    correlation_mem_Pandas_Small$p.value,
+    correlation_exe_Pandas_Small$p.value,
+    correlation_cpu_Pandas_Big$p.value,
+    correlation_mem_Pandas_Big$p.value,
+    correlation_exe_Pandas_Big$p.value,
+    correlation_cpu_Polars_Small$p.value,
+    correlation_mem_Polars_Small$p.value,
+    correlation_exe_Polars_Small$p.value,
+    correlation_cpu_Polars_Big$p.value,
+    correlation_mem_Polars_Big$p.value,
+    correlation_exe_Polars_Big$p.value
+  )
+)
+
+
+table <- kable(results_df, caption = "Correlation Test Results", format = "markdown")
+
+
+table
+
+
+```
+
+
+
